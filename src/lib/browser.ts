@@ -14,6 +14,7 @@ export function speak(text: string) {
   speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   u.lang = "en-US";
+  u.rate = 0.9;
   speechSynthesis.speak(u);
 }
 
@@ -21,3 +22,14 @@ export function fmtDate(d: string) {
   const [, m, day] = d.split("-").map(Number);
   return `${m}월 ${day}일`;
 }
+
+/** "11월 17일 (화)" */
+export function dayLabel(d: string) {
+  return `${fmtDate(d)} (${"일월화수목금토"[new Date(d + "T00:00:00Z").getUTCDay()]})`;
+}
+
+/** timestamptz → 한국 날짜 'YYYY-MM-DD' */
+export const kstDate = (ts: string) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(ts));
+
+/** 홈 진도율 표시: 100%가 아니면 최대 99% */
+export const pctOf = (ratio: number) => (ratio >= 1 ? 100 : Math.min(99, Math.round(ratio * 100)));

@@ -99,7 +99,7 @@ create table completions (
 );
 
 -- RLS: 로그인한 사용자는 모두 읽기. 쓰기는 자기 행만. 단어장·설정은 둘 다 쓰기.
--- 가입 자체는 서버(/api/signup)가 허용 이메일만 만들고, 대시보드에서 공개 가입을 끈다.
+-- 가입은 앱 화면에서 바로 한다. 대시보드에서 "Confirm email"(인증 메일)은 끈다.
 do $$
 declare t text;
 begin

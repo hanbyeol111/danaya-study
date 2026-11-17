@@ -4,19 +4,26 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { UIProvider } from "./ui";
 
 type Me = { id: string; name: string; setName?: (n: string) => void };
 const MeContext = createContext<Me | null>(null);
 export const useMe = () => useContext(MeContext)!;
 
 const TABS = [
-  { href: "/", label: "홈", icon: "🏠" },
-  { href: "/words", label: "단어장", icon: "📒" },
-  { href: "/book", label: "책", icon: "📚" },
-  { href: "/history", label: "기록", icon: "📅" },
+  { href: "/", label: "홈" },
+  { href: "/words", label: "단어장" },
+  { href: "/book", label: "책" },
+  { href: "/history", label: "기록" },
 ];
+// 탭 바 없이 전체 화면으로 쓰는 경로
+const FULL = ["/quiz", "/words/new", "/book/plan-new", "/book/note-new", "/settings"];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
+  return <UIProvider><Gate>{children}</Gate></UIProvider>;
+}
+
+function Gate({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const router = useRouter();
   const [state, setState] = useState<"loading" | "out" | "noname" | "in">("loading");
@@ -45,25 +52,25 @@ export default function Shell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (state === "out" && path !== "/login") router.replace("/login");
-    if (state === "in" && path === "/login") router.replace("/");
+    // 이름을 아직 안 정한(noname) 첫 로그인도 로그인 화면을 떠나 이름 입력으로 간다
+    if ((state === "in" || state === "noname") && path === "/login") router.replace("/");
   }, [state, path, router]);
 
   if (path === "/login") return <>{children}</>;
-  if (state !== "in" && state !== "noname") return <div className="p-8 text-center text-muted">불러오는 중…</div>;
+  if (state !== "in" && state !== "noname") return <div className="p-8 text-center text-l3">불러오는 중…</div>;
   if (state === "noname") return <NameForm userId={me!.id} onDone={(name) => { setMe({ id: me!.id, name }); setState("in"); }} />;
 
-  const hideTabs = path.startsWith("/quiz");
+  const full = FULL.some((p) => path.startsWith(p));
   return (
     <MeContext.Provider value={{ ...me!, setName: (name) => setMe({ ...me!, name }) }}>
-      <main className={`mx-auto w-full max-w-md flex-1 px-4 pt-4 ${hideTabs ? "pb-8" : "pb-24"}`}>{children}</main>
-      {!hideTabs && (
-        <nav className="fixed inset-x-0 bottom-0 border-t border-line bg-card pb-[env(safe-area-inset-bottom)]">
-          <div className="mx-auto flex max-w-md">
+      <main className={`mx-auto w-full max-w-md flex-1 px-5 pt-[calc(env(safe-area-inset-top)+14px)] ${full ? "pb-10" : "pb-28"}`}>{children}</main>
+      {!full && (
+        <nav className="fixed inset-x-0 bottom-0 z-[5] border-t-[0.5px] border-sep bg-[rgba(249,249,249,0.94)] pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-xl">
+          <div className="mx-auto grid max-w-md grid-cols-4 px-2">
             {TABS.map((t) => {
               const active = t.href === "/" ? path === "/" : path.startsWith(t.href);
               return (
-                <Link key={t.href} href={t.href} className={`flex flex-1 flex-col items-center py-2 text-xs ${active ? "font-bold text-accent" : "text-muted"}`}>
-                  <span className="text-xl" aria-hidden>{t.icon}</span>
+                <Link key={t.href} href={t.href} className={`flex h-[50px] items-center justify-center text-[13px] ${active ? "font-semibold text-accent" : "font-medium text-l3"}`}>
                   {t.label}
                 </Link>
               );
@@ -80,7 +87,7 @@ function NameForm({ userId, onDone }: { userId: string; onDone: (name: string) =
   const [err, setErr] = useState("");
   return (
     <form
-      className="mx-auto flex w-full max-w-md flex-col gap-3 p-6 pt-16"
+      className="mx-auto flex min-h-dvh w-full max-w-md flex-col gap-7 px-7 pb-12 pt-[120px]"
       onSubmit={async (e) => {
         e.preventDefault();
         const n = name.trim();
@@ -90,11 +97,14 @@ function NameForm({ userId, onDone }: { userId: string; onDone: (name: string) =
         else onDone(n);
       }}
     >
-      <h1 className="text-2xl font-bold">반가워요!</h1>
-      <p className="text-muted">앱에서 보일 이름을 정해 주세요.</p>
-      <input className="input" value={name} maxLength={20} onChange={(e) => setName(e.target.value)} placeholder="예: 단아" autoFocus />
-      {err && <p className="text-sm text-bad">{err}</p>}
-      <button className="btn-primary">시작하기</button>
+      <div className="flex flex-col gap-2.5">
+        <div className="text-[26px] font-bold leading-[1.3]">처음 오셨네요.<br />뭐라고 부를까요?</div>
+        <div className="text-[15px] text-l2">상대방 홈 화면에 이 이름으로 보여요</div>
+      </div>
+      <input className="field-lg h-14 text-lg" value={name} maxLength={10} onChange={(e) => setName(e.target.value)} placeholder="예: 한별" autoFocus />
+      {err && <p className="text-sm text-bad-ink">{err}</p>}
+      <div className="flex-1" />
+      <button className="btn-primary" disabled={!name.trim()}>시작하기</button>
     </form>
   );
 }

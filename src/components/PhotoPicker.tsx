@@ -1,39 +1,53 @@
 "use client";
 
-import { useState } from "react";
-import { api } from "@/lib/supabase";
 import { resizeImage } from "@/lib/browser";
 
-/** 사진 고르기 → 줄이기 → 서버 추출. 결과를 onResult로 넘긴다 */
-export default function PhotoPicker<T>({ endpoint, max, label, onResult }: { endpoint: string; max: number; label: string; onResult: (r: T) => void }) {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
+/** 고른 파일들을 1600px JPEG(base64, 접두사 없음)로 */
+const toJpeg = (files: FileList | null, room: number) => Promise.all(Array.from(files ?? []).slice(0, room).map((f) => resizeImage(f)));
+
+/** 숨긴 파일 입력을 감싼 라벨 버튼. camera=true면 바로 카메라 */
+export function PhotoInput({ camera, multiple, room, onAdd, className, children }: {
+  camera?: boolean; multiple?: boolean; room: number; onAdd: (imgs: string[]) => void; className: string; children: React.ReactNode;
+}) {
   return (
-    <div className="flex flex-col gap-2">
-      <label className={`btn-primary block cursor-pointer text-center ${busy ? "opacity-50" : ""}`}>
-        {busy ? "사진 읽는 중… (10~30초)" : label}
-        <input
-          type="file" accept="image/*" capture="environment" multiple={max > 1} className="hidden" disabled={busy}
-          onChange={async (e) => {
-            const files = Array.from(e.target.files ?? []);
-            e.target.value = "";
-            if (!files.length) return;
-            if (files.length > max) return setErr(`사진은 최대 ${max}장까지 올릴 수 있어요`);
-            setErr("");
-            setBusy(true);
-            try {
-              const images = await Promise.all(files.map((f) => resizeImage(f)));
-              onResult(await api<T>(endpoint, { images }));
-            } catch (e) {
-              setErr((e as Error).message);
-            } finally {
-              setBusy(false);
-            }
-          }}
-        />
-      </label>
-      {max > 1 && <p className="text-center text-xs text-muted">여러 장(최대 {max}장)을 한 번에 고를 수 있어요</p>}
-      {err && <p className="text-sm text-bad">{err}</p>}
+    <label className={`cursor-pointer ${className}`}>
+      {children}
+      <input
+        type="file" accept="image/*" className="hidden" multiple={multiple} {...(camera ? { capture: "environment" as const } : {})}
+        onChange={async (e) => {
+          const imgs = await toJpeg(e.target.files, room);
+          e.target.value = "";
+          if (imgs.length) onAdd(imgs);
+        }}
+      />
+    </label>
+  );
+}
+
+/** "사진 찍기 / 앨범에서 고르기" 두 버튼 */
+export function PhotoButtons({ room, multiple, onAdd }: { room: number; multiple?: boolean; onAdd: (imgs: string[]) => void }) {
+  return (
+    <div className="flex w-full gap-2.5">
+      <PhotoInput camera room={room} onAdd={onAdd} className="flex h-14 flex-1 items-center justify-center rounded-[14px] bg-accent text-base font-[650] text-white">사진 찍기</PhotoInput>
+      <PhotoInput multiple={multiple} room={room} onAdd={onAdd} className="flex h-14 flex-1 items-center justify-center rounded-[14px] border border-g3 bg-card text-base font-semibold">앨범에서 고르기</PhotoInput>
+    </div>
+  );
+}
+
+/** 고른 사진 3열 그리드 (✕로 빼기) */
+export function PhotoGrid({ photos, onDel, alt, children }: { photos: string[]; onDel?: (i: number) => void; alt: string; children?: React.ReactNode }) {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {photos.map((p, i) => (
+        <div key={i} className="relative aspect-[3/4] overflow-hidden rounded-xl bg-g5">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`data:image/jpeg;base64,${p}`} alt={`${alt} ${i + 1}`} className="size-full object-cover" />
+          {onDel && (
+            <button onClick={() => onDel(i)} aria-label={`${alt} ${i + 1} 빼기`} className="absolute right-1 top-1 size-8 rounded-full border-0 bg-black/70 text-[13px] text-white">✕</button>
+          )}
+        </div>
+      ))}
+      {children}
     </div>
   );
 }

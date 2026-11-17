@@ -2,23 +2,17 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@supabase/supabase-js";
 
-export const admin = () =>
-  createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-    auth: { persistSession: false },
-  });
-
-export const allowedEmails = () =>
-  (process.env.ALLOWED_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-
 export const fail = (error: string, status = 400) => Response.json({ error }, { status });
 
-/** Authorization 헤더의 토큰으로 로그인 사용자를 확인한다 */
+/** Authorization 헤더의 토큰으로 로그인 사용자를 확인한다 (공개 키로 충분) */
 export async function requireUser(req: Request) {
   const token = req.headers.get("authorization")?.replace(/^Bearer /, "");
   if (!token) return null;
-  const { data } = await admin().auth.getUser(token);
-  const email = data.user?.email?.toLowerCase();
-  return email && allowedEmails().includes(email) ? data.user : null;
+  const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+    auth: { persistSession: false },
+  });
+  const { data } = await sb.auth.getUser(token);
+  return data.user ?? null;
 }
 
 const MODEL = "claude-sonnet-5-5";

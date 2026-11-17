@@ -39,7 +39,10 @@ export type Progress = {
   ko2en: number;
   reviewDone: number;
   reviewTotal: number;
-  ratio: number; // 0~1
+  todoDone: number; // 오늘의 계획(책 범위·할 일) 중 끝낸 것
+  todoTotal: number;
+  wordRatio: number; // 단어(뜻·영어·복습)만의 진도 0~1
+  ratio: number; // 단어 + 할 일 전체 진도 0~1
 };
 
 export function computeProgress(
@@ -47,6 +50,7 @@ export function computeProgress(
   todayAttempts: Attempt[],
   reviewQueue: string[],
   reviewPassed: Set<string>,
+  todos: { done: number; total: number } = { done: 0, total: 0 },
 ): Progress {
   const ids = new Set(wordIds);
   const correct = (mode: Attempt["mode"]) =>
@@ -57,9 +61,14 @@ export function computeProgress(
   const n = ids.size;
   const total = 2 * n + reviewQueue.length;
   const hasSet = n > 0;
+  const wordDone = en2ko + ko2en + reviewDone;
+  const wordTotal = hasSet ? total : 0; // 단어 세트가 없으면 복습만으로는 분량을 세지 않는다
+  const all = wordTotal + todos.total;
   return {
     hasSet, n, en2ko, ko2en, reviewDone, reviewTotal: reviewQueue.length,
-    ratio: hasSet && total > 0 ? (en2ko + ko2en + reviewDone) / total : 0,
+    todoDone: todos.done, todoTotal: todos.total,
+    wordRatio: hasSet && total > 0 ? wordDone / total : 0,
+    ratio: all > 0 ? ((hasSet ? wordDone : 0) + todos.done) / all : 0,
   };
 }
 

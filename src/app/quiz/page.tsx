@@ -53,7 +53,7 @@ export default function QuizPage() {
   const router = useRouter();
   const [ctx, setCtx] = useState<{ today: string; words: Word[]; pool: string[]; retry: boolean; ptName: string } | null>(null);
   const [stage, setStage] = useState<Stage | null>(null);
-  const [result, setResult] = useState<{ stage: Stage; next: Plan } | null>(null);
+  const [result, setResult] = useState<{ stage: Stage; next: Plan; ratio: number } | null>(null);
   const [empty, setEmpty] = useState<"noset" | "done" | null>(null);
   const failedReview = useRef(new Set<string>());
 
@@ -100,10 +100,10 @@ export default function QuizPage() {
       : { ...base, queue: [...rest, word], wrong: s.wrong.some((w) => w.id === word.id) ? s.wrong : [...s.wrong, word] };
     if (n.queue.length) return setStage(n);
     setStage(null);
-    if (ctx!.retry) return setResult({ stage: n, next: null });
+    if (ctx!.retry) return setResult({ stage: n, next: null, ratio: 0 });
     const r = await nextPlan(me.id, n.mode);
     if (!r.plan && r.ratio >= 1) await markComplete(me.id, r.today);
-    setResult({ stage: n, next: r.plan });
+    setResult({ stage: n, next: r.plan, ratio: r.ratio });
   }
 
   if (!ctx) return <div className="flex min-h-[80dvh]"><Spinner text="불러오는 중" /></div>;
@@ -124,7 +124,7 @@ export default function QuizPage() {
       <div className="flex min-h-[calc(100dvh-60px)] flex-col gap-5 pt-2">
         <div className="flex flex-col gap-1.5">
           <div className="text-sm font-semibold text-l2">{NAMES[r.mode]}{ctx.retry && " · 다시 풀기"} 완료</div>
-          {allDone && <div className="text-[28px] font-bold leading-[1.3]">오늘 분량 끝!</div>}
+          {allDone && <div className="text-[28px] font-bold leading-[1.3]">{result.ratio >= 1 ? "오늘 분량 끝!" : "단어 끝! 남은 할 일은 홈에서"}</div>}
           <div className="text-base text-l4">한 번에 맞힌 단어 <b className="tnum">{r.pool - r.wrong.length}</b> / {r.pool}</div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto rounded-[18px] bg-card px-4 py-1.5">
@@ -143,7 +143,7 @@ export default function QuizPage() {
         </div>
         <div className="flex flex-col gap-2.5">
           {nx && <button className="btn-primary" onClick={() => { setResult(null); setStage(makeStage(nx)); }}>다음 단계 · {NAMES[nx.mode]}</button>}
-          {allDone && <button className="btn-primary" onClick={() => router.push(`/?cheer=${encodeURIComponent("나 오늘 분량 끝냈어!")}`)}>{ctx.ptName}에게 알리기</button>}
+          {allDone && result.ratio >= 1 && <button className="btn-primary" onClick={() => router.push(`/?cheer=${encodeURIComponent("나 오늘 분량 끝냈어!")}`)}>{ctx.ptName}에게 알리기</button>}
           <Link href="/" className="btn-secondary">홈으로</Link>
         </div>
       </div>

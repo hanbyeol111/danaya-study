@@ -150,7 +150,7 @@ export default function HomePage() {
           </Link>
         ) : (
           <div className="mt-0.5 flex h-[50px] items-center gap-2 rounded-[14px] bg-good-bg pl-4 pr-1.5">
-            <span className="flex-1 text-[17px] font-semibold text-good-ink">오늘 분량 끝!</span>
+            <span className="flex-1 text-[17px] font-semibold text-good-ink">{p.todoDone < p.todoTotal ? `단어 끝! 할 일 ${p.todoTotal - p.todoDone}개 남음` : "오늘 분량 끝!"}</span>
             <Link href="/quiz?retry=1" className="flex h-[38px] items-center rounded-[10px] bg-card px-3.5 text-[15px] font-semibold text-accent">다시 풀어보기</Link>
           </div>
         )}
@@ -185,8 +185,11 @@ function Row({ u, isMe, hasSet }: { u: UserDay; isMe: boolean; hasSet: boolean }
   const p = u.progress;
   const pct = pctOf(p.ratio);
   const f = (c: number, t: number) => (t > 0 && c >= t ? "✓" : c > 0 ? `${c}/${t}` : "–");
-  const steps = [`뜻 ${f(p.en2ko, p.n)}`, `영어 ${f(p.ko2en, p.n)}`, `복습 ${p.reviewTotal === 0 ? "없음" : f(p.reviewDone, p.reviewTotal)}`];
-  const note = !hasSet ? "단어장 대기 중" : !isMe && pct === 0 ? "아직 시작 안 했어요" : !isMe && pct === 100 ? "오늘 끝냈어요" : null;
+  const steps = [
+    ...(hasSet ? [`뜻 ${f(p.en2ko, p.n)}`, `영어 ${f(p.ko2en, p.n)}`, `복습 ${p.reviewTotal === 0 ? "없음" : f(p.reviewDone, p.reviewTotal)}`] : []),
+    ...(p.todoTotal ? [`할 일 ${f(p.todoDone, p.todoTotal)}`] : []),
+  ];
+  const note = !hasSet && !p.todoTotal ? "단어장 대기 중" : !isMe && pct === 0 ? "아직 시작 안 했어요" : !isMe && pct === 100 ? "오늘 끝냈어요" : null;
   return (
     <div className="flex flex-col gap-2 px-4 py-3.5">
       <div className="flex items-center gap-2">
@@ -242,10 +245,10 @@ function TodayPlan({ d, me, pt, reload }: { d: Home; me: UserDay; pt?: UserDay; 
         <div className="flex flex-col px-4 pb-2 pt-1">
           {d.wordDay && (
             <div className="border-b border-bg py-2">
-              <Link href={me.progress.ratio >= 1 ? "/quiz?retry=1" : "/quiz"} className="flex min-h-9 items-center gap-2.5">
-                <Check done={me.progress.ratio >= 1} />
+              <Link href={me.progress.wordRatio >= 1 ? "/quiz?retry=1" : "/quiz"} className="flex min-h-9 items-center gap-2.5">
+                <Check done={me.progress.wordRatio >= 1} />
                 <span className="min-w-0 flex-1 truncate text-[15px]">단어 · {d.wordDay.book ? `${d.wordDay.book} ` : ""}{d.wordDay.title}</span>
-                <span className="tnum text-[13px] text-l2">{pctOf(me.progress.ratio)}%</span>
+                <span className="tnum text-[13px] text-l2">{pctOf(me.progress.wordRatio)}%</span>
               </Link>
               <Resources list={resourcesFor(d.wordDay.title, d.wordDay.book, d.edition)} />
             </div>

@@ -124,3 +124,13 @@ test("moveUnit: 하나만 또는 뒤 항목까지 같이 밀기", () => {
   assert.deepEqual(pushed.map((u) => [u.id, u.scheduled_date]), [["a", "2026-11-19"], ["b", "2026-11-20"], ["d", "2026-11-22"]]);
   assert.deepEqual(moveUnit(us, "d", "2026-11-17", true).map((u) => u.id), ["d"]); // 당겨오기: 뒤 항목 없음
 });
+
+test("진도율: 오늘의 계획 할 일도 분량에 들어간다", () => {
+  const ids = ["a", "b"];
+  const att: Attempt[] = [{ word_id: "a", mode: "en2ko", correct: true }, { word_id: "b", mode: "en2ko", correct: true }];
+  const p = computeProgress(ids, att, [], new Set(), { done: 1, total: 2 });
+  assert.equal(p.wordRatio, 0.5); // 단어 4칸 중 2
+  assert.equal(p.ratio, 3 / 6); // (2 + 1) / (4 + 2)
+  const onlyTodo = computeProgress([], [], [], new Set(), { done: 2, total: 2 });
+  assert.equal(onlyTodo.ratio, 1); // 단어 세트 없는 날도 할 일을 다 하면 100%
+});

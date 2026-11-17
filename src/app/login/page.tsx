@@ -34,7 +34,8 @@ export default function LoginPage() {
   return (
     <form onSubmit={submit} className="mx-auto flex min-h-dvh w-full max-w-md flex-col justify-center gap-9 px-7 pb-12 pt-[60px]">
       <div className="flex flex-col gap-3.5">
-        <div className="flex size-[52px] items-center justify-center rounded-[14px] bg-accent text-[22px] font-bold text-bg">단</div>
+        {/* eslint-disable-next-line @next/next/no-img-element -- 앱 아이콘과 같은 작은 SVG */}
+        <img src="/icon.svg" alt="단아야 공부하자 로고" className="size-[52px] rounded-[14px]" />
         <div className="text-[28px] font-bold leading-tight">단아야 공부하자</div>
         <div className="text-base leading-normal text-l2">둘이 같이, 매일 토익</div>
       </div>

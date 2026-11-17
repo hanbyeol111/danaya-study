@@ -51,12 +51,13 @@ function Gate({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (state === "out" && path !== "/login") router.replace("/login");
+    if (state === "out" && path !== "/login" && path !== "/help") router.replace("/login");
     // 이름을 아직 안 정한(noname) 첫 로그인도 로그인 화면을 떠나 이름 입력으로 간다
     if ((state === "in" || state === "noname") && path === "/login") router.replace("/");
   }, [state, path, router]);
 
-  if (path === "/login") return <>{children}</>;
+  // 로그인 화면과 도움말은 로그인 없이 볼 수 있다
+  if (path === "/login" || path === "/help") return <>{children}</>;
   if (state !== "in" && state !== "noname") return <div className="p-8 text-center text-l3">불러오는 중…</div>;
   if (state === "noname") return <NameForm userId={me!.id} onDone={(name) => { setMe({ id: me!.id, name }); setState("in"); }} />;
 

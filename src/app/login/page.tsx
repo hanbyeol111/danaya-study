@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -56,6 +57,7 @@ export default function LoginPage() {
         <button type="button" className="border-0 bg-transparent text-[13px] text-l3" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setErr(""); }}>
           {mode === "login" ? "처음이에요 · 가입하기" : "이미 가입했어요 · 로그인"}
         </button>
+        <Link href="/help" className="text-center text-[13px] font-semibold text-accent">앱으로 설치하는 법 · 사용법 보기</Link>
       </div>
     </form>
   );

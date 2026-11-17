@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useMe } from "@/components/Shell";
 import { Segment, TopBar, useUI } from "@/components/ui";
@@ -52,6 +53,7 @@ export default function SettingsPage() {
         <Segment value={edition} options={[["9", "9판 (2023)"], ["8", "8판"]]} onChange={setEdition} />
       </div>
       <button className="btn-primary h-[54px] text-base" disabled={!name.trim() || !exam} onClick={save}>저장</button>
+      <Link href="/help" className="btn-secondary">도움말 · 앱 사용법</Link>
       <div className="flex-1" />
       <button
         onClick={async () => { if (await ask("로그아웃할까요?", "다시 들어오려면 이메일과 비밀번호가 필요해요.", "로그아웃")) supabase.auth.signOut(); }}

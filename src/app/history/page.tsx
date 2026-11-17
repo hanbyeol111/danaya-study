@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useMe } from "@/components/Shell";
 import { useUI } from "@/components/ui";
 import { supabase, must } from "@/lib/supabase";
@@ -133,6 +134,7 @@ function Account({ name }: { name: string }) {
           <span className="min-w-0 flex-1 truncate text-right font-semibold">{email}</span>
         </div>
       </div>
+      <Link href="/help" className="flex h-[50px] items-center justify-center rounded-[14px] bg-card text-base font-semibold text-accent">도움말 · 앱 사용법</Link>
       <button
         onClick={async () => { if (await ask("로그아웃할까요?", "다시 들어오려면 이메일과 비밀번호가 필요해요.", "로그아웃")) supabase.auth.signOut(); }}
         className="h-[50px] rounded-[14px] border-0 bg-card text-base font-semibold text-bad-ink"

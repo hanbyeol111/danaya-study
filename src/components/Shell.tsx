@@ -17,7 +17,7 @@ const TABS = [
   { href: "/history", label: "기록" },
 ];
 // 탭 바 없이 전체 화면으로 쓰는 경로
-const FULL = ["/quiz", "/words/new", "/book/plan-new", "/book/note-new", "/settings"];
+const FULL = ["/quiz", "/words/new", "/words/study", "/book/plan-new", "/book/note-new", "/settings"];
 
 export default function Shell({ children }: { children: React.ReactNode }) {
   return <UIProvider><Gate>{children}</Gate></UIProvider>;

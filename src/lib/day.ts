@@ -1,7 +1,7 @@
 import { supabase, must } from "./supabase";
 import { todayKST, todaysReview, computeProgress, type Attempt, type Progress, type ReviewItem } from "./rules";
 
-export type Word = { id: string; set_id: string; english: string; korean: string; position: number };
+export type Word = { id: string; set_id: string; english: string; korean: string; pos: string; position: number };
 export type Profile = { id: string; name: string };
 export type UserDay = {
   profile: Profile;
@@ -16,7 +16,7 @@ export async function loadToday() {
   const today = todayKST();
   const [profiles, set, attempts, reviews] = await Promise.all([
     supabase.from("profiles").select("id,name").order("created_at").then(must),
-    supabase.from("word_sets").select("id,study_date,words(id,set_id,english,korean,position)").eq("study_date", today).maybeSingle().then(must),
+    supabase.from("word_sets").select("id,study_date,words(id,set_id,english,korean,pos,position)").eq("study_date", today).maybeSingle().then(must),
     supabase.from("attempts").select("user_id,word_id,mode,correct").eq("study_date", today).then(must),
     supabase.from("review_items").select("user_id,word_id,stage,due_date").lt("stage", 3).then(must),
   ]);

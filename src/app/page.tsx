@@ -8,10 +8,12 @@ import { loadToday, markComplete, type UserDay } from "@/lib/day";
 import { daysBetween } from "@/lib/rules";
 import { supabase, must } from "@/lib/supabase";
 import { dayLabel, pctOf } from "@/lib/browser";
+import { hackersUrl, kindOf, picksFor } from "@/lib/hackers";
 
 type Unit = { id: string; user_id: string; title: string; scheduled_date: string; done: boolean; done_date: string | null; book_plans: { book_title: string } | null };
 type Cheer = { message: string; from_user: string };
-type Home = Awaited<ReturnType<typeof loadToday>> & { examDate: string; units: Unit[]; cheers: Cheer[]; myPlanCount: number };
+type NextDay = { id: string; title: string; word_books: { title: string } | null };
+type Home = Awaited<ReturnType<typeof loadToday>> & { examDate: string; edition: number; units: Unit[]; cheers: Cheer[]; myPlanCount: number; nextDay: NextDay | null };
 
 const NAMES = { en2ko: "뜻 맞히기", ko2en: "영어 맞히기", review: "복습" } as const;
 
@@ -27,14 +29,19 @@ export default function HomePage() {
       const today = day.today;
       const mine = day.users.find((u) => u.profile.id === me.id);
       if (mine && mine.progress.ratio >= 1) await markComplete(me.id, today);
-      const [settings, units, cheers, plans] = await Promise.all([
-        supabase.from("settings").select("exam_date").eq("id", 1).single().then(must),
+      const [settings, units, cheers, plans, nextDay] = await Promise.all([
+        supabase.from("settings").select("exam_date,hackers_edition").eq("id", 1).single().then(must),
         supabase.from("book_units").select("id,user_id,title,scheduled_date,done,done_date,book_plans(book_title)")
           .lte("scheduled_date", today).or(`done.eq.false,done_date.eq.${today}`).order("scheduled_date").order("position").then(must),
         supabase.from("cheers").select("message,from_user").order("created_at", { ascending: false }).limit(30).then(must),
         supabase.from("book_plans").select("id", { count: "exact", head: true }).eq("user_id", me.id),
+        // 오늘 분량이 없을 때 이어서 할 Day: 가장 최근에 공부한 단어장의 다음 Day
+        day.setId ? null : nextDayOf(),
       ]);
-      setD({ ...day, examDate: settings!.exam_date, units: units as unknown as Unit[], cheers: cheers as Cheer[], myPlanCount: plans.count ?? 0 });
+      setD({
+        ...day, examDate: settings!.exam_date, edition: settings!.hackers_edition, units: units as unknown as Unit[],
+        cheers: cheers as Cheer[], myPlanCount: plans.count ?? 0, nextDay,
+      });
       setErr("");
     } catch (e) {
       setErr((e as Error).message);
@@ -102,6 +109,13 @@ export default function HomePage() {
         </div>
       </div>
 
+      {dday >= 0 && dday <= 7 && (
+        <Link href="/book/guide#exam" className="flex items-center gap-3 rounded-2xl bg-pt-soft px-4 py-3">
+          <span className="min-w-0 flex-1 text-[15px] leading-snug"><b className="text-pt-ink">시험 준비물·시간표</b><br /><span className="text-l4">신분증부터 챙겨요 · 오전 9:30 오리엔테이션 시작</span></span>
+          <span className="text-xl text-pt-ink">›</span>
+        </Link>
+      )}
+
       <section className="flex flex-col gap-2">
         <div className="flex items-baseline justify-between px-1">
           <div className="text-lg font-bold">오늘의 분량</div>
@@ -112,7 +126,18 @@ export default function HomePage() {
           {pt && <div className="ml-4 h-[0.5px] bg-sep" />}
           {pt && <Row u={pt} isMe={false} hasSet={hasSet} />}
         </div>
-        {!hasSet ? (
+        {!hasSet && d.nextDay ? (
+          <div className="mt-0.5 flex flex-col gap-1">
+            <button
+              onClick={async () => { await supabase.from("word_sets").update({ study_date: d.today }).eq("id", d.nextDay!.id); load(); }}
+              className="flex h-[50px] items-center justify-center gap-2 rounded-[14px] border-0 bg-accent text-white"
+            >
+              <span className="text-[17px] font-semibold">{d.nextDay.title} 시작하기</span>
+              <span className="text-[13px] text-white/80">{d.nextDay.word_books?.title}</span>
+            </button>
+            <Link href="/words/new" className="btn-text">다른 단어 사진 올리기</Link>
+          </div>
+        ) : !hasSet ? (
           <Link href="/words/new" className="mt-0.5 flex h-[50px] items-center justify-center rounded-[14px] bg-accent text-[17px] font-semibold text-white">오늘 단어장 사진 올리기</Link>
         ) : next ? (
           <Link href="/quiz" className="mt-0.5 flex h-[50px] items-center justify-center gap-2 rounded-[14px] bg-accent text-white">
@@ -137,6 +162,15 @@ export default function HomePage() {
       )}
     </div>
   );
+}
+
+async function nextDayOf(): Promise<NextDay | null> {
+  const last = await supabase.from("word_sets").select("book_id,position").not("book_id", "is", null).not("study_date", "is", null)
+    .order("study_date", { ascending: false }).limit(1).maybeSingle();
+  let q = supabase.from("word_sets").select("id,title,word_books(title)").is("study_date", null).not("book_id", "is", null);
+  if (last.data) q = q.eq("book_id", last.data.book_id).gt("position", last.data.position);
+  const { data } = await q.order("position").limit(1).maybeSingle();
+  return (data as unknown as NextDay) ?? null;
 }
 
 function Avatar({ name, cls }: { name: string; cls: string }) {
@@ -195,13 +229,25 @@ function BookToday({ d, meId, meName, pt, reload }: { d: Home; meId: string; meN
         <div className="flex gap-2.5 pl-4 pr-3">
           <div className="w-9 shrink-0 text-sm font-semibold leading-[44px] text-me">{meName}</div>
           <div className="flex min-w-0 flex-1 flex-col">
-            {mine.map((x) => (
-              <button key={x.id} onClick={() => toggle(x)} className="flex min-h-11 items-center gap-2.5 border-0 bg-transparent p-0 text-left">
-                <Check done={x.done} />
-                <span className={`min-w-0 flex-1 truncate text-[15px] ${x.done ? "text-l3 line-through" : ""}`}>{label(x)}</span>
-                {x.late && <LateBadge />}
-              </button>
-            ))}
+            {mine.map((x) => {
+              const kind = !x.done && x.book_plans ? kindOf(x.book_plans.book_title) : null;
+              return (
+                <div key={x.id}>
+                  <button onClick={() => toggle(x)} className="flex min-h-11 w-full items-center gap-2.5 border-0 bg-transparent p-0 text-left">
+                    <Check done={x.done} />
+                    <span className={`min-w-0 flex-1 truncate text-[15px] ${x.done ? "text-l3 line-through" : ""}`}>{label(x)}</span>
+                    {x.late && <LateBadge />}
+                  </button>
+                  {kind && (
+                    <a href={hackersUrl(kind, d.edition)} target="_blank" rel="noopener noreferrer" className="mb-2 ml-8 flex flex-wrap items-center gap-1 text-[13px] text-accent">
+                      <span className="text-l3">해커스 자료:</span>
+                      {picksFor(kind, x.title).map((t) => <span key={t} className="rounded-md bg-bg px-1.5 py-0.5">{t}</span>)}
+                      <span>열기 ›</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })}
             {!mine.length && d.myPlanCount > 0 && <div className="flex min-h-11 items-center text-[15px] text-l2">책 쉬는 날 (복습 추천)</div>}
             {!mine.length && d.myPlanCount === 0 && !open && (
               <button onClick={() => setOpen(true)} className="min-h-11 border-0 bg-transparent p-0 text-left text-[15px] text-accent">오늘 범위 직접 적기</button>

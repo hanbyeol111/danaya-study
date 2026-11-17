@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { hackersUrl, kindOf } from "@/lib/hackers";
+import { bookOf, partGuide } from "@/lib/guide";
 import { useCallback, useEffect, useState } from "react";
 import { useMe } from "@/components/Shell";
 import { Bar, Check, Chip, LateBadge, Segment, Sub, TopBar, useUI } from "@/components/ui";
@@ -25,7 +27,10 @@ export default function BookPage() {
   }, []);
   return (
     <div className="flex flex-col gap-5">
-      <div className="pt-1.5 text-[26px] font-bold">책</div>
+      <div className="flex items-center justify-between pt-1.5">
+        <div className="text-[26px] font-bold">책</div>
+        <Link href="/book/guide" className="flex h-11 items-center rounded-xl bg-card px-3.5 text-[15px] font-semibold text-accent">해커스 가이드</Link>
+      </div>
       <Segment value={seg} options={[["plan", "책 계획"], ["notes", "오답 노트"]]} onChange={setSeg} />
       {seg === "plan" ? <Plans openId={openPlan} setOpenId={setOpenPlan} /> : <Notes openId={openNote} setOpenId={setOpenNote} />}
     </div>
@@ -108,6 +113,11 @@ function PlanCard({ p, color, view, onOpen }: { p: Plan; color: string; view?: b
 function PlanDetail({ plan, mine, owner, onBack, reload }: { plan: Plan; mine: boolean; owner: string; onBack: () => void; reload: () => void }) {
   const { ask, toast } = useUI();
   const today = todayKST();
+  const kind = kindOf(plan.book_title);
+  const [edition, setEdition] = useState(9);
+  useEffect(() => {
+    if (kind) supabase.from("settings").select("hackers_edition").eq("id", 1).single().then(({ data }) => data && setEdition(data.hackers_edition));
+  }, [kind]);
   const undone = plan.units.filter((u) => !u.done);
   const late = undone.filter((u) => u.scheduled_date < today).length;
   const byDate = new Map<string, Unit[]>();
@@ -144,6 +154,7 @@ function PlanDetail({ plan, mine, owner, onBack, reload }: { plan: Plan; mine: b
         <div className="text-[13px] font-semibold text-l2">{owner}</div>
         <div className="text-2xl font-bold">{plan.book_title}</div>
         <div className="text-sm text-l2">{plan.units.filter((u) => u.done).length} / {plan.units.length} 끝냄{!plan.manual && ` · ${fmtDate(plan.start_date)} ~ ${fmtDate(plan.end_date)}`}</div>
+        {kind && <a href={hackersUrl(kind, edition)} target="_blank" rel="noopener noreferrer" className="mt-1 text-[15px] font-semibold text-accent">해커스 무료 자료 페이지 열기 ›</a>}
       </div>
       {mine && !plan.manual && undone.length > 0 && (
         <div className="mx-5 mb-3 flex items-center gap-2.5 rounded-[14px] bg-card py-3 pl-4 pr-3">
@@ -274,6 +285,7 @@ function NoteDetail({ n, onBack, reload }: { n: Note; onBack: () => void; reload
             <div className="text-base leading-normal">{n.memo}</div>
           </div>
         )}
+        <GuideRefs part={n.part} />
       </div>
       <div className="border-t border-g5 px-5 pb-[max(env(safe-area-inset-bottom),24px)] pt-3">
         <button
@@ -282,6 +294,21 @@ function NoteDetail({ n, onBack, reload }: { n: Note; onBack: () => void; reload
         >{n.solved ? "미해결로 되돌리기" : "해결로 옮기기"}</button>
       </div>
     </Sub>
+  );
+}
+
+/** 오답의 Part로 해커스 교재에서 다시 볼 곳을 알려준다 */
+function GuideRefs({ part }: { part: number | null }) {
+  const g = partGuide(part);
+  if (!g) return null;
+  return (
+    <Link href={`/book/guide#p${g.part}`} className="flex flex-col gap-1.5 rounded-[14px] bg-me-soft px-4 py-3.5">
+      <div className="text-[13px] font-bold text-me">해커스 토익 {bookOf(g.part)}에서 다시 보기</div>
+      {g.refs.map((r) => (
+        <div key={r.label} className="flex justify-between gap-3 text-[15px]"><span>{r.label}</span><span className="tnum shrink-0 font-semibold">{r.pages}</span></div>
+      ))}
+      <div className="text-[13px] text-l2">Part {g.part} 출제 경향 보기 ›</div>
+    </Link>
   );
 }
 

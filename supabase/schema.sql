@@ -8,14 +8,26 @@ create table profiles (
 
 create table settings (
   id int primary key default 1 check (id = 1),
-  exam_date date not null default '2027-02-28'
+  exam_date date not null default '2027-02-28',
+  hackers_edition int not null default 9 check (hackers_edition in (8, 9))
 );
 insert into settings (id) values (1);
 
+create table word_books (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) between 1 and 30),
+  created_by uuid not null references profiles default auth.uid(),
+  created_at timestamptz not null default now()
+);
+
+-- Day = word_sets 한 행. study_date는 '오늘 분량으로 정한 날'이라 정하기 전엔 비어 있다.
 create table word_sets (
   id uuid primary key default gen_random_uuid(),
-  study_date date not null unique,
-  created_by uuid not null references profiles,
+  book_id uuid references word_books on delete cascade,
+  title text not null default '' check (char_length(title) <= 30),
+  position int not null default 0,
+  study_date date unique,
+  created_by uuid not null references profiles default auth.uid(),
   created_at timestamptz not null default now()
 );
 
@@ -24,6 +36,7 @@ create table words (
   set_id uuid not null references word_sets on delete cascade,
   english text not null check (char_length(english) between 1 and 100),
   korean text not null check (char_length(korean) between 1 and 200),
+  pos text not null default '' check (char_length(pos) <= 20),
   position int not null
 );
 create index on words (set_id);
@@ -32,7 +45,7 @@ create table attempts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references profiles default auth.uid(),
   word_id uuid not null references words on delete cascade,
-  mode text not null check (mode in ('en2ko', 'ko2en', 'review')),
+  mode text not null check (mode in ('en2ko', 'ko2en', 'review', 'practice')),
   correct boolean not null,
   study_date date not null,
   created_at timestamptz not null default now()
@@ -103,7 +116,7 @@ create table completions (
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles','settings','word_sets','words','attempts','review_items','cheers','book_plans','book_units','wrong_notes','completions'] loop
+  foreach t in array array['profiles','settings','word_books','word_sets','words','attempts','review_items','cheers','book_plans','book_units','wrong_notes','completions'] loop
     execute format('alter table %I enable row level security', t);
     execute format('create policy "read" on %I for select to authenticated using (true)', t);
   end loop;
@@ -111,6 +124,7 @@ end $$;
 
 create policy "own" on profiles for all to authenticated using (id = auth.uid()) with check (id = auth.uid());
 create policy "both" on settings for update to authenticated using (true) with check (true);
+create policy "both" on word_books for all to authenticated using (true) with check (true);
 create policy "both" on word_sets for all to authenticated using (true) with check (true);
 create policy "both" on words for all to authenticated using (true) with check (true);
 create policy "own" on attempts for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());

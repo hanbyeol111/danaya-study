@@ -7,13 +7,13 @@
 ## 처음 한 번 설정 (한별)
 
 1. **Supabase** (무료): https://supabase.com 에서 새 프로젝트를 만든다. 지역은 Seoul 추천.
-   - SQL Editor에서 [supabase/schema.sql](supabase/schema.sql) 내용을 붙여 넣고 실행.
+   - SQL Editor에서 [supabase/schema.sql](supabase/schema.sql) 내용을 붙여 넣고 실행. (예전에 schema.sql을 이미 실행했다면 [migrate-002-wordbooks.sql](supabase/migrate-002-wordbooks.sql)만 실행)
    - Authentication → Sign In / Providers → "Allow new users to sign up" **켜기**, **"Confirm email" 끄기** (가입하면 인증 메일 없이 바로 로그인).
    - Project Settings → API Keys에서 URL과 **publishable 키**만 복사. 비밀(secret) 키는 쓰지 않는다.
-2. **Anthropic API 키** (사진 인식용, 쓴 만큼 과금): https://console.anthropic.com 에서 키를 만들고, Billing에서 크레딧을 넣고 **월 사용 한도**를 걸어 둔다.
+2. **사진 인식 키**: 학교 챗쿠(BAZE) API 게이트웨이 https://chat.khu.ac.kr/dashboard/developers 에서 키를 만들어 `LLM_API_KEY`에 넣는다. `LLM_BASE_URL`, `LLM_MODEL`은 [.env.example](.env.example) 값 그대로. (Anthropic 키를 직접 쓰면 이 둘은 비운다)
 3. 이 폴더에 `.env.local`을 만들고 [.env.example](.env.example)처럼 채운다.
 4. 로컬 실행: `npm install` → `npm run dev` → http://localhost:3000
-5. **배포**: GitHub에 올리고 https://vercel.com 에서 가져오기 → Environment Variables에 `.env.local`과 같은 3개를 넣고 Deploy.
+5. **배포**: GitHub에 올리고 https://vercel.com 에서 가져오기 → Environment Variables에 `.env.local`과 같은 5개를 넣고 Deploy.
 6. 두 사람 각자 배포 주소에서 "처음이에요 → 가입하기" → 이름 입력. 휴대폰 브라우저 메뉴의 "홈 화면에 추가"로 앱처럼 쓴다.
 
 ## 개발

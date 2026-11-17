@@ -36,7 +36,7 @@ async function nextPlan(meId: string, after?: Mode): Promise<{ plan: Plan; today
     if (m === "review") {
       const left = mine.reviewQueue.filter((id) => !mine.reviewPassed.has(id));
       if (!left.length) continue;
-      const ws = must(await supabase.from("words").select("id,set_id,english,korean,position").in("id", left)) as Word[];
+      const ws = must(await supabase.from("words").select("id,set_id,english,korean,pos,position").in("id", left)) as Word[];
       return { plan: { mode: m, left: ws, done: mine.reviewQueue.length - left.length, total: mine.reviewQueue.length }, ...base };
     }
     const c = new Set(mine.attempts.filter((a) => a.mode === m && a.correct).map((a) => a.word_id));

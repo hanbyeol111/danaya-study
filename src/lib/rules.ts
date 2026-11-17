@@ -18,7 +18,7 @@ export const REVIEW_DAILY_MAX = 30;
 const REVIEW_GAP = [1, 3, 7]; // stage 0→1일, 1→3일, 2→7일 뒤
 
 export type ReviewItem = { word_id: string; stage: number; due_date: string };
-export type Attempt = { word_id: string; mode: "en2ko" | "ko2en" | "review"; correct: boolean };
+export type Attempt = { word_id: string; mode: "en2ko" | "ko2en" | "review" | "practice"; correct: boolean };
 
 /** 오늘 복습 대상: 오늘 이미 복습에서 푼 단어 + 아직 남은 기한 지난 단어(오래된 순), 합계 최대 30개 */
 export function todaysReview(items: ReviewItem[], todayAttempts: Attempt[], today: string) {
@@ -113,4 +113,26 @@ export function shuffle<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
+}
+
+/** "(잘못, 사실 등을)인정하다, 시인하다; 허가하다" → 괄호 안 쉼표는 그대로 두고 뜻별로 나눈다 */
+export function splitMeanings(korean: string): string[] {
+  return korean.split(/[,;](?![^(]*\))/).map((m) => m.trim()).filter(Boolean);
+}
+
+export type WordStatus = "new" | "known" | "shaky";
+/** 단어별 내 상태: 마지막 시도가 맞으면 외움, 틀리면 헷갈림, 시도 없으면 new. attempts는 오래된 순 */
+export function wordStatus(attempts: { word_id: string; correct: boolean }[]): Map<string, WordStatus> {
+  const m = new Map<string, WordStatus>();
+  for (const a of attempts) m.set(a.word_id, a.correct ? "known" : "shaky");
+  return m;
+}
+
+/** 학습 플랜처럼 하루에 여러 항목이 묶인 경우: 같은 day끼리 같은 날짜. day가 없으면 항목 하나가 하루 */
+export function distributeByDay(days: (number | null)[], start: string, end: string): string[] {
+  const keys = days.map((d, i) => (d == null ? `i${i}` : `d${d}`));
+  const order = [...new Set(keys)];
+  const dates = distributeUnits(order.length, start, end);
+  const at = new Map(order.map((k, i) => [k, dates[i]]));
+  return keys.map((k) => at.get(k)!);
 }

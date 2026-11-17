@@ -15,7 +15,8 @@ export async function requireUser(req: Request) {
   return data.user ?? null;
 }
 
-const MODEL = "claude-sonnet-5-5";
+// 챗쿠(BAZE) 게이트웨이: LLM_BASE_URL=https://factchat-cloud.mindlogic.ai/v1/gateway/claude, LLM_MODEL=claude-sonnet-5
+const MODEL = process.env.LLM_MODEL || "claude-sonnet-5-5";
 const MAX_BYTES = 5 * 1024 * 1024;
 
 /** base64 JPEG 검사: 개수·크기 */
@@ -29,7 +30,9 @@ export function checkImages(images: unknown, maxCount: number): string[] | strin
 
 /** 이미지 + 지시문을 보내고 JSON만 받는다. 파싱 실패 시 1회 재시도. */
 export async function extractJson<T>(images: string[], instruction: string, validate: (v: unknown) => T | null): Promise<T> {
-  const client = new Anthropic({ apiKey: process.env.LLM_API_KEY });
+  const base = process.env.LLM_BASE_URL || undefined;
+  // 챗쿠 게이트웨이는 x-api-key가 아니라 "Authorization: Bearer" 헤더로 키를 받는다
+  const client = new Anthropic(base ? { authToken: process.env.LLM_API_KEY, baseURL: base } : { apiKey: process.env.LLM_API_KEY });
   for (let attempt = 0; attempt < 2; attempt++) {
     const msg = await client.messages.create({
       model: MODEL,
@@ -55,7 +58,7 @@ export async function extractJson<T>(images: string[], instruction: string, vali
 const str = (v: unknown, max: number) => (typeof v === "string" ? v.trim().slice(0, max) : "");
 
 export const validateWords = (v: unknown) =>
-  Array.isArray(v) ? v.map((w) => ({ english: str(w?.english, 100), korean: str(w?.korean, 200) })).filter((w) => w.english) : null;
+  Array.isArray(v) ? v.map((w) => ({ english: str(w?.english, 100), pos: str(w?.pos, 20), korean: str(w?.korean, 200) })).filter((w) => w.english) : null;
 
 export const validateQuestion = (v: unknown) => {
   if (!v || typeof v !== "object") return null;
@@ -67,5 +70,5 @@ export const validateQuestion = (v: unknown) => {
 
 export const validateToc = (v: unknown) =>
   Array.isArray(v)
-    ? v.map((u) => ({ title: str(u?.title, 40), page: Number.isInteger(u?.page) ? (u.page as number) : null })).filter((u) => u.title)
+    ? v.map((u) => ({ title: str(u?.title, 40), page: Number.isInteger(u?.page) ? (u.page as number) : null, day: Number.isInteger(u?.day) && u.day > 0 && u.day <= 200 ? (u.day as number) : null })).filter((u) => u.title)
     : null;

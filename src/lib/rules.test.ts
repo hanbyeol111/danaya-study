@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   todayKST, addDays, todaysReview, computeProgress, reviewOnWrong, reviewOnCorrect,
-  streak, intersect, distributeUnits, gradeTyped, type Attempt,
+  streak, intersect, distributeUnits, gradeTyped, splitMeanings, wordStatus, distributeByDay, type Attempt,
 } from "./rules.ts";
 
 test("todayKST: 한국 자정에 날짜가 바뀐다", () => {
@@ -92,4 +92,22 @@ test("책 계획 나누기", () => {
 test("영어 입력 채점: 공백·대소문자 무시", () => {
   assert.ok(gradeTyped("  Allocate ", "allocate"));
   assert.ok(!gradeTyped("allocates", "allocate"));
+});
+
+test("splitMeanings: 괄호 안 쉼표는 나누지 않는다", () => {
+  assert.deepEqual(splitMeanings("(잘못, 사실 등을)인정하다, 시인하다; 허가하다"), ["(잘못, 사실 등을)인정하다", "시인하다", "허가하다"]);
+  assert.deepEqual(splitMeanings("줄이다(=curtail, lessen)"), ["줄이다(=curtail, lessen)"]);
+});
+
+test("wordStatus: 마지막 시도로 정한다", () => {
+  const m = wordStatus([{ word_id: "a", correct: false }, { word_id: "a", correct: true }, { word_id: "b", correct: false }]);
+  assert.equal(m.get("a"), "known");
+  assert.equal(m.get("b"), "shaky");
+  assert.equal(m.get("c"), undefined);
+});
+
+test("distributeByDay: 같은 day는 같은 날짜", () => {
+  const d = distributeByDay([1, 1, 2, 2, 3], "2026-11-17", "2026-11-19");
+  assert.deepEqual(d, ["2026-11-17", "2026-11-17", "2026-11-18", "2026-11-18", "2026-11-19"]);
+  assert.deepEqual(distributeByDay([null, null], "2026-11-17", "2026-11-18"), ["2026-11-17", "2026-11-18"]);
 });

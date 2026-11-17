@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { TOURS } from "@/lib/tours";
+import Tour from "@/components/Tour";
 import { useCallback, useEffect, useState } from "react";
 import { useMe } from "@/components/Shell";
 import { Bar, Check, LateBadge, useUI } from "@/components/ui";
@@ -86,7 +88,7 @@ export default function HomePage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2.5">
-        <div className="flex flex-col gap-1.5 pt-1">
+        <div data-tour="cheer" className="flex flex-col gap-1.5 pt-1">
           <div className="flex items-end gap-2">
             <Avatar name={ptName} cls="bg-pt-soft text-pt-ink" />
             {ptCheer
@@ -107,7 +109,7 @@ export default function HomePage() {
             <Avatar name={me.name} cls="bg-me-soft text-me" />
           </div>
         </div>
-        <div className="mt-1.5 flex min-h-11 items-center justify-between">
+        <div data-tour="dday" className="mt-1.5 flex min-h-11 items-center justify-between">
           <div className="text-[34px] font-bold leading-[41px] tracking-[0.01em]">토익까지 <span className="tnum">{dday > 0 ? `D-${dday}` : dday === 0 ? "D-DAY" : `D+${-dday}`}</span></div>
           <Link href="/settings" className="flex h-11 items-center pl-4 text-[17px] text-accent">설정</Link>
         </div>
@@ -125,13 +127,13 @@ export default function HomePage() {
           <div className="text-lg font-bold">오늘의 분량</div>
           <div className="text-[13px] text-l2">{dayLabel(d.today)}{hasSet && ` · ${d.words.length}단어`}</div>
         </div>
-        <div className="card overflow-hidden">
+        <div data-tour="today-card" className="card overflow-hidden">
           <Row u={mine} isMe hasSet={hasSet} />
           {pt && <div className="ml-4 h-[0.5px] bg-sep" />}
           {pt && <Row u={pt} isMe={false} hasSet={hasSet} />}
         </div>
         {!hasSet && d.nextDay ? (
-          <div className="mt-0.5 flex flex-col gap-1">
+          <div data-tour="go" className="mt-0.5 flex flex-col gap-1">
             <button
               onClick={async () => { await supabase.from("word_sets").update({ study_date: d.today }).eq("id", d.nextDay!.id); load(); }}
               className="flex h-[50px] items-center justify-center gap-2 rounded-[14px] border-0 bg-accent text-white"
@@ -142,14 +144,14 @@ export default function HomePage() {
             <Link href="/words/new" className="btn-text">다른 단어 사진 올리기</Link>
           </div>
         ) : !hasSet ? (
-          <Link href="/words/new" className="mt-0.5 flex h-[50px] items-center justify-center rounded-[14px] bg-accent text-[17px] font-semibold text-white">오늘 단어장 사진 올리기</Link>
+          <Link data-tour="go" href="/words/new" className="mt-0.5 flex h-[50px] items-center justify-center rounded-[14px] bg-accent text-[17px] font-semibold text-white">오늘 단어장 사진 올리기</Link>
         ) : next ? (
-          <Link href="/quiz" className="mt-0.5 flex h-[50px] items-center justify-center gap-2 rounded-[14px] bg-accent text-white">
+          <Link data-tour="go" href="/quiz" className="mt-0.5 flex h-[50px] items-center justify-center gap-2 rounded-[14px] bg-accent text-white">
             <span className="text-[17px] font-semibold">이어서 하기</span>
             <span className="text-[13px] text-white/80">다음: {NAMES[next]} · {remain}개 남음</span>
           </Link>
         ) : (
-          <div className="mt-0.5 flex h-[50px] items-center gap-2 rounded-[14px] bg-good-bg pl-4 pr-1.5">
+          <div data-tour="go" className="mt-0.5 flex h-[50px] items-center gap-2 rounded-[14px] bg-good-bg pl-4 pr-1.5">
             <span className="flex-1 text-[17px] font-semibold text-good-ink">{p.todoDone < p.todoTotal ? `단어 끝! 할 일 ${p.todoTotal - p.todoDone}개 남음` : "오늘 분량 끝!"}</span>
             <Link href="/quiz?retry=1" className="flex h-[38px] items-center rounded-[10px] bg-card px-3.5 text-[15px] font-semibold text-accent">다시 풀어보기</Link>
           </div>
@@ -157,6 +159,7 @@ export default function HomePage() {
       </section>
 
       <TodayPlan d={d} me={mine} pt={pt} reload={load} />
+      <Tour id="home" steps={TOURS.home} />
 
       {sheet !== null && (
         <CheerSheet
@@ -236,7 +239,7 @@ function TodayPlan({ d, me, pt, reload }: { d: Home; me: UserDay; pt?: UserDay; 
   }
 
   return (
-    <section className="flex flex-col gap-2">
+    <section data-tour="plan" className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between px-1">
         <div className="text-lg font-bold">오늘의 계획</div>
         {mine.length > 0 && <div className="tnum text-[13px] text-l2">{doneN} / {mine.length} 끝냄</div>}
@@ -269,7 +272,7 @@ function TodayPlan({ d, me, pt, reload }: { d: Home; me: UserDay; pt?: UserDay; 
           {!mine.length && !d.wordDay && (
             <div className="py-2.5 text-[15px] text-l2">{d.myPlanCount > 0 ? "오늘은 책 범위가 없어요 · 복습하거나 할 일을 적어 보세요" : "오늘 할 일을 적어 보세요"}</div>
           )}
-          <form className="flex gap-2 pb-1 pt-2" onSubmit={(e) => { e.preventDefault(); add(); }}>
+          <form data-tour="add-todo" className="flex gap-2 pb-1 pt-2" onSubmit={(e) => { e.preventDefault(); add(); }}>
             <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 40))} placeholder="+ 할 일 추가 (예: Part 4 Course 1 듣기)" aria-label="할 일"
               className="h-10 min-w-0 flex-1 rounded-[10px] border-0 bg-bg px-3 text-[15px] outline-none" />
             {title.trim() && <button className="h-10 rounded-[10px] border-0 bg-accent px-3.5 text-[15px] font-semibold text-white">추가</button>}
@@ -304,7 +307,7 @@ function Resources({ list }: { list: Resource[] }) {
   if (!list.length) return null;
   const icon = { 강의: "▶", MP3: "♪", 연습: "✎", 교재: "📖" } as const;
   return (
-    <div className="flex flex-wrap gap-1.5 pb-1 pl-8 pt-1">
+    <div data-tour="links" className="flex flex-wrap gap-1.5 pb-1 pl-8 pt-1">
       {list.map((r) => {
         const cls = "flex min-h-8 items-center gap-1 rounded-lg bg-me-soft px-2.5 py-1 text-[13px] font-medium text-me";
         const body = <><span aria-hidden>{icon[r.type]}</span>{r.label}</>;

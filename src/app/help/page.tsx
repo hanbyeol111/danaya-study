@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Segment, TopBar } from "@/components/ui";
+import { resetTours } from "@/components/Tour";
 
 // 로그인 전에도 볼 수 있는 도움말 (Shell에서 /help는 로그인 없이 통과)
 type Sec = { icon: string; title: string; items: (string | [string, string[]])[] };
@@ -116,6 +117,11 @@ export default function HelpPage() {
           <div className="text-sm text-l2">단아야 공부하자 · 둘이 같이, 매일 토익</div>
         </div>
       </div>
+
+      <button onClick={() => { resetTours(); router.push("/"); }} className="flex flex-col items-start gap-1 rounded-2xl border-0 bg-accent px-4 py-4 text-left text-white">
+        <span className="text-lg font-bold">👀 화면에서 직접 둘러보기</span>
+        <span className="text-sm leading-normal text-white/85">실제 앱 화면 위에서 하나씩 짚어 가며 알려줘요. 홈 · 단어장 · 책 · 기록을 처음 열 때마다 나와요.</span>
+      </button>
 
       <section className="flex flex-col gap-3 rounded-2xl bg-card px-4 py-4">
         <div className="text-lg font-bold">📱 휴대폰 홈 화면에 앱으로 추가하기</div>

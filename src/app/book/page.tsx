@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { TOURS } from "@/lib/tours";
+import Tour from "@/components/Tour";
 import { hackersUrl, kindOf } from "@/lib/hackers";
 import { bookOf, partGuide } from "@/lib/guide";
 import { useCallback, useEffect, useState } from "react";
@@ -29,10 +31,11 @@ export default function BookPage() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between pt-1.5">
         <div className="text-[26px] font-bold">책</div>
-        <Link href="/book/guide" className="flex h-11 items-center rounded-xl bg-card px-3.5 text-[15px] font-semibold text-accent">해커스 가이드</Link>
+        <Link data-tour="guide" href="/book/guide" className="flex h-11 items-center rounded-xl bg-card px-3.5 text-[15px] font-semibold text-accent">해커스 가이드</Link>
       </div>
-      <Segment value={seg} options={[["plan", "책 계획"], ["notes", "오답 노트"]]} onChange={setSeg} />
+      <div data-tour="book-seg"><Segment value={seg} options={[["plan", "책 계획"], ["notes", "오답 노트"]]} onChange={setSeg} /></div>
       {seg === "plan" ? <Plans openId={openPlan} setOpenId={setOpenPlan} /> : <Notes openId={openNote} setOpenId={setOpenNote} />}
+      {seg === "plan" && <Tour id="book" steps={TOURS.book} />}
     </div>
   );
 }
@@ -74,7 +77,7 @@ function Plans({ openId, setOpenId }: { openId: string | null; setOpenId: (id: s
       <div className="flex flex-col gap-2.5">
         <div className="flex items-center justify-between">
           <div className="text-[17px] font-bold">내 계획</div>
-          <Link href="/book/plan-new" className="flex h-11 items-center rounded-xl bg-accent px-3.5 text-sm font-semibold text-white">+ 새 계획</Link>
+          <Link data-tour="new-plan" href="/book/plan-new" className="flex h-11 items-center rounded-xl bg-accent px-3.5 text-sm font-semibold text-white">+ 새 계획</Link>
         </div>
         {mine.map((p) => <PlanCard key={p.id} p={p} color="bg-me" onOpen={() => setOpenId(p.id)} />)}
         {!mine.length && (

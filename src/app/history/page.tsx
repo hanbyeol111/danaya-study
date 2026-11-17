@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { TOURS } from "@/lib/tours";
+import Tour from "@/components/Tour";
 import Link from "next/link";
 import { useMe } from "@/components/Shell";
 import { useUI } from "@/components/ui";
@@ -56,7 +58,7 @@ export default function HistoryPage() {
   return (
     <div className="flex flex-col gap-5">
       <div className="pt-1.5 text-[26px] font-bold">기록</div>
-      <div className="flex flex-col gap-2.5 rounded-[18px] bg-card px-3 pb-4 pt-3.5">
+      <div data-tour="calendar" className="flex flex-col gap-2.5 rounded-[18px] bg-card px-3 pb-4 pt-3.5">
         <div className="flex items-center justify-between px-0.5">
           <button onClick={() => canPrev && shift(-1)} aria-label="이전 달" className={`size-11 border-0 bg-transparent text-xl ${canPrev ? "text-accent" : "text-g4"}`}>‹</button>
           <div className="text-[17px] font-bold">{y}년 {m}월</div>
@@ -86,12 +88,12 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      <div className="flex items-center justify-between rounded-[18px] bg-accent p-[18px] text-white">
+      <div data-tour="streak" className="flex items-center justify-between rounded-[18px] bg-accent p-[18px] text-white">
         <span className="text-[15px] text-white/75">둘 다 연속</span>
         <span className="tnum text-[28px] font-bold">{both}일</span>
       </div>
 
-      <div className="rounded-[18px] bg-card px-4 py-1.5">
+      <div data-tour="stats" className="rounded-[18px] bg-card px-4 py-1.5">
         <div className="grid min-h-11 grid-cols-[minmax(0,1.2fr)_1fr_1fr] items-center border-b border-bg text-sm font-bold">
           <span />
           <span className="text-right text-me">{mine.profile.name}</span>
@@ -111,6 +113,7 @@ export default function HistoryPage() {
       </div>
 
       <Account name={mine.profile.name} />
+      <Tour id="history" steps={TOURS.history} />
     </div>
   );
 }
@@ -134,7 +137,7 @@ function Account({ name }: { name: string }) {
           <span className="min-w-0 flex-1 truncate text-right font-semibold">{email}</span>
         </div>
       </div>
-      <Link href="/help" className="flex h-[50px] items-center justify-center rounded-[14px] bg-card text-base font-semibold text-accent">도움말 · 앱 사용법</Link>
+      <Link data-tour="help" href="/help" className="flex h-[50px] items-center justify-center rounded-[14px] bg-card text-base font-semibold text-accent">도움말 · 앱 사용법</Link>
       <button
         onClick={async () => { if (await ask("로그아웃할까요?", "다시 들어오려면 이메일과 비밀번호가 필요해요.", "로그아웃")) supabase.auth.signOut(); }}
         className="h-[50px] rounded-[14px] border-0 bg-card text-base font-semibold text-bad-ink"

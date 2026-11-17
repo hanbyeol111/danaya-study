@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { TOURS } from "@/lib/tours";
+import Tour from "@/components/Tour";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { useMe } from "@/components/Shell";
@@ -89,7 +91,7 @@ export default function BookPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div data-tour="modes" className="grid grid-cols-2 gap-2">
         {MODES.map(([m, name, desc]) => (
           <Link key={m} href={`/words/study?mode=${m}&${studyQs}`} className={`flex flex-col gap-0.5 rounded-2xl bg-card px-3.5 py-3 ${list.length ? "" : "pointer-events-none opacity-50"}`}>
             <span className="text-base font-bold">{name}</span>
@@ -99,7 +101,7 @@ export default function BookPage() {
       </div>
       <div className="-mt-1.5 text-center text-[13px] text-l3">아래에서 고른 Day·상태의 단어 {list.length}개로 공부해요</div>
 
-      <div className="-mx-5 flex gap-1.5 overflow-x-auto px-5 pb-0.5">
+      <div data-tour="days" className="-mx-5 flex gap-1.5 overflow-x-auto px-5 pb-0.5">
         <Chip on={!day} onClick={() => setDay(null)}>전체</Chip>
         {book.days.map((d) => <Chip key={d.id} on={day === d.id} onClick={() => setDay(d.id)}>{dayName(d)}</Chip>)}
         {book.id && <Link href={`/words/new?book=${book.id}`} className="flex h-9 shrink-0 items-center rounded-full px-3 text-sm font-semibold text-accent" style={{ border: "1.5px dashed var(--color-accent)" }}>+ Day</Link>}
@@ -111,7 +113,7 @@ export default function BookPage() {
           <button onClick={delDay} className="h-9 border-0 bg-transparent px-1.5 text-l3">Day 삭제</button>
         </div>
       )}
-      <div className="flex gap-1.5">{FILTERS.map(([f, label]) => <Chip key={f} on={filter === f} onClick={() => setFilter(f)}>{label}</Chip>)}</div>
+      <div data-tour="filters" className="flex gap-1.5">{FILTERS.map(([f, label]) => <Chip key={f} on={filter === f} onClick={() => setFilter(f)}>{label}</Chip>)}</div>
       <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이 단어장에서 검색" type="search" autoCapitalize="off" className="field" />
 
       <div className="rounded-2xl bg-card py-0.5 pl-3.5 pr-2">
@@ -138,7 +140,7 @@ export default function BookPage() {
                   </div>
                 </div>
               ) : (
-                <div className="flex items-start gap-1.5 py-3">
+                <div data-tour="word" className="flex items-start gap-1.5 py-3">
                   <span className="tnum w-[26px] pt-0.5 text-xs text-l3">{i + 1}</span>
                   <button onClick={() => setEdit({ id: w.id, en: w.english, pos: w.pos, ko: w.korean })} className="min-w-0 flex-1 border-0 bg-transparent p-0 text-left">
                     <div className="flex items-center gap-1.5 text-[17px] font-[650]">
@@ -156,6 +158,7 @@ export default function BookPage() {
         })}
       </div>
       {!!list.length && <div className="text-center text-[13px] text-l3">단어를 누르면 고칠 수 있어요</div>}
+      <Tour id="wordbook" steps={TOURS.wordbook} />
     </div>
   );
 }

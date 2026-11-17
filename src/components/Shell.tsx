@@ -66,7 +66,7 @@ function Gate({ children }: { children: React.ReactNode }) {
     <MeContext.Provider value={{ ...me!, setName: (name) => setMe({ ...me!, name }) }}>
       <main className={`mx-auto w-full max-w-md flex-1 px-5 pt-[calc(env(safe-area-inset-top)+14px)] ${full ? "pb-10" : "pb-28"}`}>{children}</main>
       {!full && (
-        <nav className="fixed inset-x-0 bottom-0 z-[5] border-t-[0.5px] border-sep bg-[rgba(249,249,249,0.94)] pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-xl">
+        <nav data-tour="tabs" className="fixed inset-x-0 bottom-0 z-[5] border-t-[0.5px] border-sep bg-[rgba(249,249,249,0.94)] pb-[max(env(safe-area-inset-bottom),12px)] backdrop-blur-xl">
           <div className="mx-auto grid max-w-md grid-cols-4 px-2">
             {TABS.map((t) => {
               const active = t.href === "/" ? path === "/" : path.startsWith(t.href);

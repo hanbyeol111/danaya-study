@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { TOURS } from "@/lib/tours";
+import Tour from "@/components/Tour";
 import { useEffect, useState } from "react";
 import { useMe } from "@/components/Shell";
 import { Bar, PlayButton } from "@/components/ui";
@@ -23,9 +25,9 @@ export default function WordsPage() {
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between pt-1.5">
         <div className="text-[26px] font-bold">단어장</div>
-        <Link href="/words/new" className="flex h-11 items-center rounded-xl bg-accent px-4 text-[15px] font-semibold text-white">+ 단어 추가</Link>
+        <Link data-tour="add-words" href="/words/new" className="flex h-11 items-center rounded-xl bg-accent px-4 text-[15px] font-semibold text-white">+ 단어 추가</Link>
       </div>
-      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="모든 단어장에서 검색 (영어·뜻)" type="search" autoCapitalize="off" className="field" />
+      <input data-tour="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="모든 단어장에서 검색 (영어·뜻)" type="search" autoCapitalize="off" className="field" />
 
       {s ? (
         <div className="rounded-2xl bg-card px-4 py-1">
@@ -51,7 +53,7 @@ export default function WordsPage() {
             const c = counts(b.words, lib.status);
             const pct = c.total ? Math.round((c.known / c.total) * 100) : 0;
             return (
-              <Link key={b.id ?? "none"} href={`/words/book?id=${b.id ?? "none"}`} className="flex flex-col gap-2.5 rounded-2xl bg-card px-4 py-3.5">
+              <Link data-tour="book-card" key={b.id ?? "none"} href={`/words/book?id=${b.id ?? "none"}`} className="flex flex-col gap-2.5 rounded-2xl bg-card px-4 py-3.5">
                 <div className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate text-[17px] font-bold">{b.title}</span>
                   <span className="tnum text-[15px] font-semibold text-me">{pct}%</span>
@@ -69,6 +71,7 @@ export default function WordsPage() {
           })}
         </div>
       )}
+      <Tour id="words" steps={TOURS.words} />
     </div>
   );
 }

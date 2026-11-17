@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fbf7f2;
+  --card: #ffffff;
+  --ink: #2b2420;
+  --muted: #8a7f78;
+  --line: #ece4dc;
+  --accent: #e8664a;
+  --accent-soft: #fde6df;
+  --partner: #4a8fe8;
+  --partner-soft: #e1edfc;
+  --good: #2f9e5b;
+  --bad: #d64545;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1917;
+    --card: #27221f;
+    --ink: #f3ede8;
+    --muted: #a39890;
+    --line: #3a332e;
+    --accent: #f27c62;
+    --accent-soft: #4a2c24;
+    --partner: #6fa6ee;
+    --partner-soft: #22324a;
+    --good: #4cc27c;
+    --bad: #f06a6a;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-partner: var(--partner);
+  --color-partner-soft: var(--partner-soft);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+@layer components {
+  .card { @apply rounded-2xl border border-line bg-card p-4; }
+  .input { @apply w-full min-w-0 rounded-xl border border-line bg-card px-3 py-3 text-base outline-none focus:border-accent; }
+  .btn-primary { @apply w-full rounded-2xl bg-accent px-4 py-4 text-lg font-bold text-white active:opacity-80 disabled:opacity-40; }
+  .btn { @apply rounded-xl border border-line bg-card px-3 py-2 text-sm font-medium active:opacity-70 disabled:opacity-40; }
+  .btn-danger { @apply rounded-xl border border-bad px-3 py-2 text-sm font-medium text-bad active:opacity-70; }
+  .h1 { @apply text-xl font-bold; }
+}

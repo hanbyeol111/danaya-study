@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   todayKST, addDays, todaysReview, computeProgress, reviewOnWrong, reviewOnCorrect,
-  streak, intersect, distributeUnits, gradeTyped, splitMeanings, wordStatus, distributeByDay, type Attempt,
+  streak, intersect, distributeUnits, gradeTyped, splitMeanings, wordStatus, distributeByDay, moveUnit, type Attempt,
 } from "./rules.ts";
 
 test("todayKST: 한국 자정에 날짜가 바뀐다", () => {
@@ -85,7 +85,7 @@ test("책 계획 나누기", () => {
   assert.deepEqual(d10.slice(0, 4), ["2026-11-01", "2026-11-01", "2026-11-01", "2026-11-02"]);
   assert.equal(d10[29], "2026-11-10");
   const sparse = distributeUnits(2, "2026-11-01", "2026-11-04");
-  assert.deepEqual(sparse, ["2026-11-02", "2026-11-04"]);
+  assert.deepEqual(sparse, ["2026-11-01", "2026-11-03"]); // 항목이 날짜보다 적어도 첫 항목은 시작일
   assert.throws(() => distributeUnits(3, "2026-11-05", "2026-11-04"));
 });
 
@@ -110,4 +110,17 @@ test("distributeByDay: 같은 day는 같은 날짜", () => {
   const d = distributeByDay([1, 1, 2, 2, 3], "2026-11-17", "2026-11-19");
   assert.deepEqual(d, ["2026-11-17", "2026-11-17", "2026-11-18", "2026-11-18", "2026-11-19"]);
   assert.deepEqual(distributeByDay([null, null], "2026-11-17", "2026-11-18"), ["2026-11-17", "2026-11-18"]);
+});
+
+test("moveUnit: 하나만 또는 뒤 항목까지 같이 밀기", () => {
+  const us = [
+    { id: "a", scheduled_date: "2026-11-17", position: 0, done: false },
+    { id: "b", scheduled_date: "2026-11-18", position: 1, done: false },
+    { id: "c", scheduled_date: "2026-11-19", position: 2, done: true },
+    { id: "d", scheduled_date: "2026-11-20", position: 3, done: false },
+  ];
+  assert.deepEqual(moveUnit(us, "a", "2026-11-18", false).map((u) => u.scheduled_date), ["2026-11-18"]);
+  const pushed = moveUnit(us, "a", "2026-11-19", true);
+  assert.deepEqual(pushed.map((u) => [u.id, u.scheduled_date]), [["a", "2026-11-19"], ["b", "2026-11-20"], ["d", "2026-11-22"]]);
+  assert.deepEqual(moveUnit(us, "d", "2026-11-17", true).map((u) => u.id), ["d"]); // 당겨오기: 뒤 항목 없음
 });

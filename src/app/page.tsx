@@ -8,12 +8,12 @@ import { loadToday, markComplete, type UserDay } from "@/lib/day";
 import { daysBetween } from "@/lib/rules";
 import { supabase, must } from "@/lib/supabase";
 import { dayLabel, pctOf } from "@/lib/browser";
-import { hackersUrl, kindOf, picksFor } from "@/lib/hackers";
+import { resourcesFor, type Resource } from "@/lib/hackers";
 
-type Unit = { id: string; user_id: string; title: string; scheduled_date: string; done: boolean; done_date: string | null; book_plans: { book_title: string } | null };
+type Unit = { id: string; user_id: string; plan_id: string | null; title: string; scheduled_date: string; done: boolean; done_date: string | null; book_plans: { book_title: string } | null };
 type Cheer = { message: string; from_user: string };
 type NextDay = { id: string; title: string; word_books: { title: string } | null };
-type Home = Awaited<ReturnType<typeof loadToday>> & { examDate: string; edition: number; units: Unit[]; cheers: Cheer[]; myPlanCount: number; nextDay: NextDay | null };
+type Home = Awaited<ReturnType<typeof loadToday>> & { examDate: string; edition: number; units: Unit[]; cheers: Cheer[]; myPlanCount: number; nextDay: NextDay | null; wordDay: { title: string; book: string } | null };
 
 const NAMES = { en2ko: "뜻 맞히기", ko2en: "영어 맞히기", review: "복습" } as const;
 
@@ -29,18 +29,22 @@ export default function HomePage() {
       const today = day.today;
       const mine = day.users.find((u) => u.profile.id === me.id);
       if (mine && mine.progress.ratio >= 1) await markComplete(me.id, today);
-      const [settings, units, cheers, plans, nextDay] = await Promise.all([
+      const [settings, units, cheers, plans, nextDay, wordDay] = await Promise.all([
         supabase.from("settings").select("exam_date,hackers_edition").eq("id", 1).single().then(must),
-        supabase.from("book_units").select("id,user_id,title,scheduled_date,done,done_date,book_plans(book_title)")
+        supabase.from("book_units").select("id,user_id,plan_id,title,scheduled_date,done,done_date,book_plans(book_title)")
           .lte("scheduled_date", today).or(`done.eq.false,done_date.eq.${today}`).order("scheduled_date").order("position").then(must),
         supabase.from("cheers").select("message,from_user").order("created_at", { ascending: false }).limit(30).then(must),
         supabase.from("book_plans").select("id", { count: "exact", head: true }).eq("user_id", me.id),
         // 오늘 분량이 없을 때 이어서 할 Day: 가장 최근에 공부한 단어장의 다음 Day
         day.setId ? null : nextDayOf(),
+        // 오늘 단어 분량이 어느 단어장의 어느 Day인지 (해커스 단어암기 MP3 고르기용)
+        day.setId ? supabase.from("word_sets").select("title,study_date,word_books(title)").eq("id", day.setId).single().then(({ data }) => data && {
+          title: data.title || "오늘 단어", book: (data.word_books as unknown as { title: string } | null)?.title ?? "",
+        }) : null,
       ]);
       setD({
         ...day, examDate: settings!.exam_date, edition: settings!.hackers_edition, units: units as unknown as Unit[],
-        cheers: cheers as Cheer[], myPlanCount: plans.count ?? 0, nextDay,
+        cheers: cheers as Cheer[], myPlanCount: plans.count ?? 0, nextDay, wordDay: wordDay ?? null,
       });
       setErr("");
     } catch (e) {
@@ -152,7 +156,7 @@ export default function HomePage() {
         )}
       </section>
 
-      <BookToday d={d} meId={me.id} meName={me.name} pt={pt} reload={load} />
+      <TodayPlan d={d} me={mine} pt={pt} reload={load} />
 
       {sheet !== null && (
         <CheerSheet
@@ -199,87 +203,113 @@ function Row({ u, isMe, hasSet }: { u: UserDay; isMe: boolean; hasSet: boolean }
   );
 }
 
-function BookToday({ d, meId, meName, pt, reload }: { d: Home; meId: string; meName: string; pt?: UserDay; reload: () => void }) {
-  const [open, setOpen] = useState(false);
+function TodayPlan({ d, me, pt, reload }: { d: Home; me: UserDay; pt?: UserDay; reload: () => void }) {
+  const { ask } = useUI();
   const [title, setTitle] = useState("");
   const items = (uid: string) =>
     d.units.filter((x) => x.user_id === uid)
       .map((x) => ({ ...x, late: !x.done && x.scheduled_date < d.today }))
-      .sort((a, b) => Number(b.late) - Number(a.late) || a.scheduled_date.localeCompare(b.scheduled_date));
-  const mine = items(meId);
+      .sort((a, b) => Number(a.done) - Number(b.done) || Number(b.late) - Number(a.late) || a.scheduled_date.localeCompare(b.scheduled_date));
+  const mine = items(me.profile.id);
   const theirs = pt ? items(pt.profile.id) : [];
   const label = (x: Unit) => (x.book_plans ? `${x.book_plans.book_title} · ${x.title}` : x.title);
+  const doneN = mine.filter((x) => x.done).length;
 
   async function toggle(x: Unit) {
     await supabase.from("book_units").update({ done: !x.done, done_date: x.done ? null : d.today }).eq("id", x.id);
     reload();
   }
   async function add() {
-    if (!title.trim()) return;
-    await supabase.from("book_units").insert({ title: title.trim().slice(0, 40), scheduled_date: d.today });
+    const t = title.trim().slice(0, 40);
+    if (!t) return;
+    await supabase.from("book_units").insert({ title: t, scheduled_date: d.today });
     setTitle("");
-    setOpen(false);
+    reload();
+  }
+  async function remove(x: Unit) {
+    if (!(await ask("할 일을 지울까요?", x.title, "지우기"))) return;
+    await supabase.from("book_units").delete().eq("id", x.id);
     reload();
   }
 
   return (
     <section className="flex flex-col gap-2">
-      <div className="px-1 text-lg font-bold">오늘의 책</div>
+      <div className="flex items-baseline justify-between px-1">
+        <div className="text-lg font-bold">오늘의 계획</div>
+        {mine.length > 0 && <div className="tnum text-[13px] text-l2">{doneN} / {mine.length} 끝냄</div>}
+      </div>
       <div className="card overflow-hidden">
-        <div className="flex gap-2.5 pl-4 pr-3">
-          <div className="w-9 shrink-0 text-sm font-semibold leading-[44px] text-me">{meName}</div>
-          <div className="flex min-w-0 flex-1 flex-col">
-            {mine.map((x) => {
-              const kind = !x.done && x.book_plans ? kindOf(x.book_plans.book_title) : null;
-              return (
-                <div key={x.id}>
-                  <button onClick={() => toggle(x)} className="flex min-h-11 w-full items-center gap-2.5 border-0 bg-transparent p-0 text-left">
-                    <Check done={x.done} />
-                    <span className={`min-w-0 flex-1 truncate text-[15px] ${x.done ? "text-l3 line-through" : ""}`}>{label(x)}</span>
-                    {x.late && <LateBadge />}
-                  </button>
-                  {kind && (
-                    <a href={hackersUrl(kind, d.edition)} target="_blank" rel="noopener noreferrer" className="mb-2 ml-8 flex flex-wrap items-center gap-1 text-[13px] text-accent">
-                      <span className="text-l3">해커스 자료:</span>
-                      {picksFor(kind, x.title).map((t) => <span key={t} className="rounded-md bg-bg px-1.5 py-0.5">{t}</span>)}
-                      <span>열기 ›</span>
-                    </a>
-                  )}
-                </div>
-              );
-            })}
-            {!mine.length && d.myPlanCount > 0 && <div className="flex min-h-11 items-center text-[15px] text-l2">책 쉬는 날 (복습 추천)</div>}
-            {!mine.length && d.myPlanCount === 0 && !open && (
-              <button onClick={() => setOpen(true)} className="min-h-11 border-0 bg-transparent p-0 text-left text-[15px] text-accent">오늘 범위 직접 적기</button>
-            )}
-            {open && (
-              <form className="flex gap-2 py-1.5" onSubmit={(e) => { e.preventDefault(); add(); }}>
-                <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 40))} placeholder="예: LC p.80~95" autoFocus className="h-10 min-w-0 flex-1 rounded-[10px] border-0 bg-bg px-3 text-[15px] outline-none" />
-                <button className="h-10 rounded-[10px] border-0 bg-accent px-3.5 text-[15px] font-semibold text-white">추가</button>
-              </form>
-            )}
-          </div>
+        <div className="flex flex-col px-4 pb-2 pt-1">
+          {d.wordDay && (
+            <div className="border-b border-bg py-2">
+              <Link href={me.progress.ratio >= 1 ? "/quiz?retry=1" : "/quiz"} className="flex min-h-9 items-center gap-2.5">
+                <Check done={me.progress.ratio >= 1} />
+                <span className="min-w-0 flex-1 truncate text-[15px]">단어 · {d.wordDay.book ? `${d.wordDay.book} ` : ""}{d.wordDay.title}</span>
+                <span className="tnum text-[13px] text-l2">{pctOf(me.progress.ratio)}%</span>
+              </Link>
+              <Resources list={resourcesFor(d.wordDay.title, d.wordDay.book, d.edition)} />
+            </div>
+          )}
+          {mine.map((x) => (
+            <div key={x.id} className="border-b border-bg py-1.5 last:border-0">
+              <div className="flex min-h-10 items-center gap-2.5">
+                <button onClick={() => toggle(x)} aria-label={x.done ? "안 끝낸 걸로" : "끝냈어요"} className="flex min-w-0 flex-1 items-center gap-2.5 border-0 bg-transparent p-0 text-left">
+                  <Check done={x.done} />
+                  <span className={`min-w-0 flex-1 text-[15px] leading-snug ${x.done ? "text-l3 line-through" : ""}`}>{label(x)}</span>
+                </button>
+                {x.late && <LateBadge />}
+                {!x.plan_id && <button onClick={() => remove(x)} aria-label="할 일 지우기" className="h-9 w-7 border-0 bg-transparent text-sm text-l3">✕</button>}
+              </div>
+              {!x.done && <Resources list={resourcesFor(x.title, x.book_plans?.book_title ?? "", d.edition)} />}
+            </div>
+          ))}
+          {!mine.length && !d.wordDay && (
+            <div className="py-2.5 text-[15px] text-l2">{d.myPlanCount > 0 ? "오늘은 책 범위가 없어요 · 복습하거나 할 일을 적어 보세요" : "오늘 할 일을 적어 보세요"}</div>
+          )}
+          <form className="flex gap-2 pb-1 pt-2" onSubmit={(e) => { e.preventDefault(); add(); }}>
+            <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 40))} placeholder="+ 할 일 추가 (예: Part 4 Course 1 듣기)" aria-label="할 일"
+              className="h-10 min-w-0 flex-1 rounded-[10px] border-0 bg-bg px-3 text-[15px] outline-none" />
+            {title.trim() && <button className="h-10 rounded-[10px] border-0 bg-accent px-3.5 text-[15px] font-semibold text-white">추가</button>}
+          </form>
         </div>
         {pt && (
           <>
             <div className="ml-4 h-[0.5px] bg-sep" />
-            <div className="flex gap-2.5 pl-4 pr-3">
-              <div className="w-9 shrink-0 text-sm font-semibold leading-[44px] text-pt-ink">{pt.profile.name}</div>
-              <div className="flex min-w-0 flex-1 flex-col">
-                {theirs.map((x) => (
-                  <div key={x.id} className="flex min-h-11 items-center gap-2.5">
-                    <Check done={x.done} dim />
-                    <span className={`min-w-0 flex-1 truncate text-[15px] ${x.done ? "text-l3 line-through" : ""}`}>{label(x)}</span>
-                    {x.late && <LateBadge />}
-                  </div>
-                ))}
-                {!theirs.length && <div className="flex min-h-11 items-center text-[15px] text-l3">책 계획 없음</div>}
+            <div className="flex flex-col px-4 py-2">
+              <div className="flex items-center justify-between pb-1 text-sm font-semibold text-pt-ink">
+                <span>{pt.profile.name}</span>
+                {theirs.length > 0 && <span className="tnum text-[13px] font-normal text-l2">{theirs.filter((x) => x.done).length} / {theirs.length}</span>}
               </div>
+              {theirs.map((x) => (
+                <div key={x.id} className="flex min-h-9 items-center gap-2.5">
+                  <Check done={x.done} dim />
+                  <span className={`min-w-0 flex-1 truncate text-[15px] ${x.done ? "text-l3 line-through" : ""}`}>{label(x)}</span>
+                  {x.late && <LateBadge />}
+                </div>
+              ))}
+              {!theirs.length && <div className="flex min-h-9 items-center text-[15px] text-l3">오늘 할 일 없음</div>}
             </div>
           </>
         )}
       </div>
     </section>
+  );
+}
+
+/** 할 일에 맞춘 해커스 강의·MP3·교재 쪽 */
+function Resources({ list }: { list: Resource[] }) {
+  if (!list.length) return null;
+  const icon = { 강의: "▶", MP3: "♪", 연습: "✎", 교재: "📖" } as const;
+  return (
+    <div className="flex flex-wrap gap-1.5 pb-1 pl-8 pt-1">
+      {list.map((r) => {
+        const cls = "flex min-h-8 items-center gap-1 rounded-lg bg-me-soft px-2.5 py-1 text-[13px] font-medium text-me";
+        const body = <><span aria-hidden>{icon[r.type]}</span>{r.label}</>;
+        return r.url.startsWith("/")
+          ? <Link key={r.label} href={r.url} className={cls}>{body}</Link>
+          : <a key={r.label} href={r.url} target="_blank" rel="noopener noreferrer" className={cls}>{body}</a>;
+      })}
+    </div>
   );
 }
 

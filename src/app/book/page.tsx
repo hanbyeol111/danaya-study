@@ -7,7 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useMe } from "@/components/Shell";
 import { Bar, Check, Chip, LateBadge, Segment, Sub, TopBar, useUI } from "@/components/ui";
 import { supabase, must } from "@/lib/supabase";
-import { distributeUnits, todayKST } from "@/lib/rules";
+import { addDays, distributeUnits, moveUnit, todayKST } from "@/lib/rules";
 import { dayLabel, fmtDate, kstDate } from "@/lib/browser";
 
 type Unit = { id: string; user_id: string; plan_id: string | null; position: number; title: string; page: number | null; scheduled_date: string; done: boolean; done_date: string | null };
@@ -118,6 +118,7 @@ function PlanDetail({ plan, mine, owner, onBack, reload }: { plan: Plan; mine: b
   useEffect(() => {
     if (kind) supabase.from("settings").select("hackers_edition").eq("id", 1).single().then(({ data }) => data && setEdition(data.hackers_edition));
   }, [kind]);
+  const [editing, setEditing] = useState<Unit | "new" | null>(null);
   const undone = plan.units.filter((u) => !u.done);
   const late = undone.filter((u) => u.scheduled_date < today).length;
   const byDate = new Map<string, Unit[]>();
@@ -171,18 +172,91 @@ function PlanDetail({ plan, mine, owner, onBack, reload }: { plan: Plan; mine: b
             </div>
             <div className="flex min-w-0 flex-1 flex-col">
               {us.map((u) => (
-                <button key={u.id} onClick={() => toggle(u)} disabled={!mine} className="flex min-h-11 items-center gap-2.5 border-0 bg-transparent px-0 py-0.5 text-left disabled:cursor-default">
-                  <Check done={u.done} dim={!mine} />
-                  <span className={`min-w-0 flex-1 text-[15px] leading-[1.35] ${u.done ? "text-l3 line-through" : "text-black"}`}>{u.title}</span>
-                  {!u.done && u.scheduled_date < today && <LateBadge />}
-                  {u.page && <span className="shrink-0 text-xs text-l3">p.{u.page}</span>}
-                </button>
+                <div key={u.id} className="flex min-h-11 items-center gap-2.5 py-0.5">
+                  <button onClick={() => toggle(u)} disabled={!mine} aria-label={u.done ? "안 끝낸 걸로" : "끝냈어요"} className="border-0 bg-transparent p-0 disabled:cursor-default"><Check done={u.done} dim={!mine} /></button>
+                  <button onClick={() => mine && setEditing(u)} disabled={!mine} className="flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent p-0 text-left disabled:cursor-default">
+                    <span className={`min-w-0 flex-1 text-[15px] leading-[1.35] ${u.done ? "text-l3 line-through" : "text-black"}`}>{u.title}</span>
+                    {!u.done && u.scheduled_date < today && <LateBadge />}
+                    {u.page && <span className="shrink-0 text-xs text-l3">p.{u.page}</span>}
+                    {mine && <span className="shrink-0 text-sm text-g4">›</span>}
+                  </button>
+                </div>
               ))}
             </div>
           </div>
         ))}
+        {mine && <button className="btn-dashed mt-2 h-12 shrink-0" onClick={() => setEditing("new")}>+ 항목 추가</button>}
+        {mine && <div className="pt-1 text-center text-[13px] text-l3">항목을 누르면 날짜를 바꾸거나(미루기·당겨오기) 고칠 수 있어요</div>}
       </div>
+      {editing && <UnitSheet plan={plan} unit={editing === "new" ? null : editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload(); }} />}
     </Sub>
+  );
+}
+
+/** 계획 항목 고치기: 날짜 옮기기(뒤 항목 같이), 제목·쪽 고치기, 지우기. unit이 null이면 새 항목 */
+function UnitSheet({ plan, unit, onClose, onSaved }: { plan: Plan; unit: Unit | null; onClose: () => void; onSaved: () => void }) {
+  const { ask, toast } = useUI();
+  const today = todayKST();
+  const last = plan.units.reduce((m, u) => (u.scheduled_date > m ? u.scheduled_date : m), today);
+  const [title, setTitle] = useState(unit?.title ?? "");
+  const [page, setPage] = useState(unit?.page ? String(unit.page) : "");
+  const [date, setDate] = useState(unit?.scheduled_date ?? last);
+  const [withLater, setWithLater] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const delta = unit ? Math.round((Date.parse(date) - Date.parse(unit.scheduled_date)) / 86400000) : 0;
+  const laterN = unit && delta ? moveUnit(plan.units, unit.id, date, true).length - 1 : 0;
+
+  async function save() {
+    if (!title.trim() || !date) return;
+    setBusy(true);
+    const fields = { title: title.trim().slice(0, 40), page: page ? Number(page) : null };
+    if (!unit) {
+      const pos = Math.max(-1, ...plan.units.map((u) => u.position)) + 1;
+      must(await supabase.from("book_units").insert({ ...fields, plan_id: plan.manual ? null : plan.id, position: pos, scheduled_date: date }));
+    } else {
+      const moved = moveUnit(plan.units, unit.id, date, withLater && !unit.done);
+      must(await supabase.from("book_units").upsert(moved.map((u) => (u.id === unit.id ? { ...u, ...fields } : u))));
+    }
+    // 항목이 종료일을 넘어가면 계획 종료일도 늘린다
+    if (!plan.manual) {
+      const ends = unit ? moveUnit(plan.units, unit.id, date, withLater && !unit.done).map((u) => u.scheduled_date) : [date];
+      const end = [plan.end_date, ...ends].sort().pop()!;
+      if (end !== plan.end_date) await supabase.from("book_plans").update({ end_date: end }).eq("id", plan.id);
+    }
+    toast(unit && delta ? `${fmtDate(date)}로 옮겼어요${withLater && laterN ? ` · 뒤 ${laterN}개도 같이` : ""}` : "저장했어요");
+    onSaved();
+  }
+  async function del() {
+    if (!unit || !(await ask("이 항목을 지울까요?", unit.title, "지우기"))) return;
+    await supabase.from("book_units").delete().eq("id", unit.id);
+    onSaved();
+  }
+
+  const quick: [string, string][] = [["오늘", today], ["내일", addDays(today, 1)], ...(unit ? [["하루 미루기", addDays(unit.scheduled_date, 1)], ["일주일 미루기", addDays(unit.scheduled_date, 7)]] as [string, string][] : [])];
+  return (
+    <div className="fixed inset-0 z-40 flex flex-col justify-end">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative mx-auto flex max-h-[90dvh] w-full max-w-md flex-col gap-3.5 overflow-y-auto rounded-t-3xl bg-card px-5 pb-[max(env(safe-area-inset-bottom),32px)] pt-[22px]">
+        <div className="text-xl font-bold">{unit ? "항목 고치기" : "항목 추가"}</div>
+        <div className="flex gap-2">
+          <input value={title} onChange={(e) => setTitle(e.target.value.slice(0, 40))} placeholder="예: Part 4 Course 1" aria-label="항목 이름" className="field" />
+          <input value={page} inputMode="numeric" onChange={(e) => setPage(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="쪽" aria-label="쪽" className="field w-[70px] text-center" />
+        </div>
+        <div className="flex flex-col gap-2">
+          <div className="text-sm font-semibold text-l2">언제 할까요</div>
+          <div className="flex flex-wrap gap-1.5">{quick.map(([l, d]) => <Chip key={l} on={date === d} onClick={() => setDate(d)}>{l}</Chip>)}</div>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} aria-label="날짜" className="field" />
+        </div>
+        {unit && !unit.done && laterN > 0 && (
+          <label className="flex min-h-11 items-center gap-2.5 text-[15px]">
+            <input type="checkbox" checked={withLater} onChange={(e) => setWithLater(e.target.checked)} className="size-5 accent-[#007aff]" />
+            뒤에 남은 {laterN}개도 {Math.abs(delta)}일씩 같이 {delta > 0 ? "미루기" : "당기기"}
+          </label>
+        )}
+        <button className="btn-primary" disabled={!title.trim() || !date || busy} onClick={save}>{busy ? "저장 중…" : "저장"}</button>
+        {unit && <button className="btn-text text-bad-ink" onClick={del}>이 항목 지우기</button>}
+      </div>
+    </div>
   );
 }
 

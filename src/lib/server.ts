@@ -37,6 +37,8 @@ export async function extractJson<T>(images: string[], instruction: string, vali
     const msg = await client.messages.create({
       model: MODEL,
       max_tokens: 4096,
+      // 사진 옮겨 적기에 생각(thinking)은 필요 없다. 켜 두면 4096토큰을 생각에 다 써서 답이 비고 재시도까지 해 80초쯤 걸렸다
+      thinking: { type: "disabled" },
       messages: [{
         role: "user",
         content: [

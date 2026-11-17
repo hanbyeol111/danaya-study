@@ -90,16 +90,12 @@ export function intersect(a: Set<string>, b: Set<string>): Set<string> {
   return new Set([...a].filter((x) => b.has(x)));
 }
 
-/** 항목 n개를 start~end(포함) 날짜에 고르게 나눈다. k번째 날 = floor(k·n/D) ~ floor((k+1)·n/D)-1번 항목 */
+/** 항목 n개를 start~end(포함) 날짜에 고르게 나눈다 */
 export function distributeUnits(n: number, start: string, end: string): string[] {
   const days = daysBetween(start, end) + 1;
   if (days < 1) throw new Error("종료일이 시작일보다 빠릅니다");
-  const out: string[] = [];
-  for (let k = 0; k < days; k++) {
-    const to = Math.floor(((k + 1) * n) / days);
-    while (out.length < to) out.push(addDays(start, k));
-  }
-  return out;
+  // i번째 항목 = 시작일 + floor(i·D/n). 첫 항목은 항상 시작일(오늘부터 할 일이 보이게)
+  return Array.from({ length: n }, (_, i) => addDays(start, Math.floor((i * days) / n)));
 }
 
 export function gradeTyped(answer: string, english: string): boolean {
@@ -135,4 +131,15 @@ export function distributeByDay(days: (number | null)[], start: string, end: str
   const dates = distributeUnits(order.length, start, end);
   const at = new Map(order.map((k, i) => [k, dates[i]]));
   return keys.map((k) => at.get(k)!);
+}
+
+type Sched = { id: string; scheduled_date: string; position: number; done: boolean };
+/** 계획 항목 하나의 날짜를 to로 옮긴다. withLater면 그 뒤의 안 끝낸 항목도 같은 날수만큼 옮긴다 */
+export function moveUnit<T extends Sched>(units: T[], id: string, to: string, withLater: boolean): T[] {
+  const t = units.find((u) => u.id === id);
+  if (!t) return [];
+  const delta = daysBetween(t.scheduled_date, to);
+  const after = (u: T) => u.scheduled_date > t.scheduled_date || (u.scheduled_date === t.scheduled_date && u.position > t.position);
+  const later = withLater && delta ? units.filter((u) => u.id !== id && !u.done && after(u)) : [];
+  return [{ ...t, scheduled_date: to }, ...later.map((u) => ({ ...u, scheduled_date: addDays(u.scheduled_date, delta) }))];
 }

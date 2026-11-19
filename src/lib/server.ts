@@ -32,7 +32,9 @@ export function checkImages(images: unknown, maxCount: number): string[] | strin
 export async function extractJson<T>(images: string[], instruction: string, validate: (v: unknown) => T | null): Promise<T> {
   const base = process.env.LLM_BASE_URL || undefined;
   // 챗쿠 게이트웨이는 x-api-key가 아니라 "Authorization: Bearer" 헤더로 키를 받는다
-  const client = new Anthropic(base ? { authToken: process.env.LLM_API_KEY, baseURL: base } : { apiKey: process.env.LLM_API_KEY });
+  // 앞단 Cloudflare가 빈/낯선 User-Agent를 403(error code 1010)으로 막아서 앱 이름을 명시한다
+  const auth = base ? { authToken: process.env.LLM_API_KEY, baseURL: base } : { apiKey: process.env.LLM_API_KEY };
+  const client = new Anthropic({ ...auth, defaultHeaders: { "User-Agent": "danaya-study/1.0" } });
   for (let attempt = 0; attempt < 2; attempt++) {
     const msg = await client.messages.create({
       model: MODEL,
@@ -46,6 +48,10 @@ export async function extractJson<T>(images: string[], instruction: string, vali
           { type: "text" as const, text: instruction + "\n\n설명이나 코드블록 없이 JSON만 출력하세요." },
         ],
       }],
+    }).catch((e: { status?: number; message?: string }) => {
+      // Vercel 로그에서 원인을 볼 수 있게 상태와 앞부분만 남긴다 (키는 메시지에 없음)
+      console.error("LLM 호출 실패", e.status, String(e.message).slice(0, 300));
+      throw new Error(e.status === 403 ? "사진 인식 서버가 요청을 막았어요 (403). 잠시 뒤 다시 해 주세요." : "사진 인식 서버에 연결하지 못했어요. 잠시 뒤 다시 해 주세요.");
     });
     const text = msg.content.map((b) => (b.type === "text" ? b.text : "")).join("");
     try {
